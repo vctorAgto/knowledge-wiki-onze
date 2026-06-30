@@ -17,10 +17,10 @@ editor: markdown
 
 | Projeto | Descrição | Status |
 |---|---|---|
-| [RegionalSharingService](./projetos/regional-sharing-service) | Distribuição de leads por regional com controle do Supervisor | ✅ Produção |
-| [Custo Médio Lead](./projetos/custo-medio-lead-service) | Reescrita da fórmula de custo médio com cron job | ✅ Produção |
-| [Deploy Apex Produção](./projetos/apex-deploy-producao) | Processo de deploy e cobertura de testes | ✅ Produção |
-| [Integração Experience Cloud](./projetos/integracao-experience-cloud) | Integração com Experience Cloud | 🟡 Em andamento |
+| [RegionalSharingService](projetos/regional-sharing-service) | Distribuição de leads por regional com controle do Supervisor | ✅ Produção |
+| [Custo Médio Lead](projetos/custo-medio-lead-service) | Reescrita da fórmula de custo médio com cron job | ✅ Produção |
+| [Deploy Apex Produção](projetos/apex-deploy-producao) | Processo de deploy e cobertura de testes | ✅ Produção |
+| [Integração Experience Cloud](projetos/integracao-experience-cloud) | Integração com Experience Cloud | 🟡 Em andamento |
 
 ---
 
