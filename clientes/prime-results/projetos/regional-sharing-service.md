@@ -43,3 +43,27 @@ if (l.Regional__c != null && l.Status_Distribuicao__c == 'Atribuído') {
 ```
 
 **Resultado:** `RegionalSharingService` em produção com Supervisor incluído.
+
+---
+
+### 30/06/2026 — Adicionar Supervisor ao compartilhamento de leads
+
+**O que foi pedido:**  
+Alguém da equipe alterou o `RegionalSharingService` no homolog para incluir o Supervisor (Read) além do Gestor e Macro Gestor. Necessário atualizar a classe teste e subir para produção.
+
+**Diferença entre homolog e prod:**
+
+| Papel | Antes (prod) | Depois (homolog → prod) |
+|---|---|---|
+| Gestor Principal | Edit | Edit |
+| **Supervisor** | — | **Read (novo)** |
+| Macro Gestor | Read | Read |
+
+**O que foi feito:**
+- Atualizado `RegionalSharingService.cls` local com a versão do homolog (incluindo `Supervisor__c`)
+- Atualizado `RegionalSharingServiceTest.cls`: criado usuário Supervisor no setup e `Supervisor__c` na Regional
+- Corrigido baixa cobertura (21% → 100%): trigger sobrescrevia `Status_Distribuicao__c` no insert do lead de teste — corrigido com `update` após `insert` no `@TestSetup`
+- Deploy para produção com **6/6 testes passando (100%)**
+
+**Classes modificadas:** `RegionalSharingService.cls`, `RegionalSharingServiceTest.cls`  
+**Campos novos:** nenhum (`Supervisor__c` já existia em `Regional__c`)
