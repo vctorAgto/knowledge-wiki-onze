@@ -204,3 +204,113 @@ O erro 17006 é um problema interno do ERP que precisa ser investigado pela equi
 - Adicionar campos de imposto nos OLIs (`ICMSValor__c`, `PorcentICMS__c`, `BaseCalculoICMS__c`, `VlrPIS__c`, `PorcentagemPIS__c`, `VlrCOFINS__c`, `PorcentagemCOFINS__c`, `VlrICMSST__c`, `PorcentemICMSST__c`) e descomentar o mapeamento em `processarResposta`
 - Investigar erro 17006 com equipe TOTVS (log do Appserver Progress)
 - Adicionar Quick Action `Integrar ERP` ao page layout da Oportunidade
+
+---
+
+## 2026-07-01 — Victor Pecuch (Sessão — Payload, Flow e Formulário de Integração de Conta)
+
+### O que foi solicitado
+
+- Completar `ERPContaService.montarPayload()` mapeando todos os campos do Salesforce para o payload JSON do ERP (`customerPublic`)
+- Corrigir erros 500 do ERP: `customerGroup` inválido, transportador não cadastrado, país não cadastrado, formato de CEP, formato de telefone, `activityBranch` sendo enviado como número
+- Salvar o `customerCode` retornado pelo ERP no campo `ExternalID__c` da Conta (não `IssuerCode__c`)
+- Construir o Flow `FLIntegracaoConta` completo com: tela de revisão do payload, validação de campos obrigatórios, formulário editável para campos faltantes e verificação de conta já integrada
+- Adicionar **todos** os campos da integração à tela `telaPreencherCampos` do flow
+- Corrigir problemas de UX do flow: imagens quebradas, erros de encoding, visibilidade dos botões
+
+### O que foi feito
+
+#### `ERPContaService` — Payload completo
+
+Método `montarPayload(Account conta)` finalizado com todos os mapeamentos:
+
+| Campo ERP | Origem Salesforce |
+|---|---|
+| `customerCode` | `ExternalID__c` (Integer, fixo se preenchido) |
+| `name` | `IssuerShortName__c` |
+| `personalId` | `formatarCNPJ(CNPJ__c)` (formato XX.XXX.XXX/XXXX-XX) |
+| `stateRegistration` | `StateRegistration__c` |
+| `activityBranch` | `conta.get('IndustryLabel')` via `toLabel(Industry)` no SOQL |
+| `customerClassification` | `obterCustomerClassification(Rating)` (map de picklist) |
+| `credit` | `obterCredit(Situation__c)` (Ativo→1, Inativo→2, Análise→7) |
+| `creditSuspendedCustomer` | `Situation__c == 'Inativo' ? true : null` |
+| `paymentTerms` | `Prazo__c` (Integer) ou default `9774` |
+| `customerGroup` | `Group__c` (Integer) ou omitido se nulo |
+| `carrier` | `StandardCarrier__r.ExternalID__c` (Integer) |
+| `salesRepresentative` | `Owner.ExternalID__c` (Integer) |
+| `entityType` | `obterEntityType(Matriz__c)` — `1` (filial) se `Matriz__c` não nulo, `0` (matriz) se nulo |
+| `priceTable` | `Tabela_Precos__r.Name` |
+| Endereço faturamento | `ShippingStreet/City/State + formatarCEP(ShippingPostalCode)` |
+| Endereço cobrança | `BillingStreet/City/State + formatarCEP(BillingPostalCode)` |
+| `country` (ambos endereços) | `normalizarPais(ShippingCountry)` — `BR` → `Brasil` |
+
+Helpers adicionados:
+
+- `formatarCNPJ(String)` — 14 dígitos → `XX.XXX.XXX/XXXX-XX`
+- `formatarCEP(String)` — 8 dígitos → `XXXXX-XXX`
+- `formatarTelefone(String)` — dígitos → `(XX) XXXX-XXXX` ou `(XX) XXXXX-XXXX`
+- `normalizarPais(String)` — `BR`/`BRA`/`BRAZIL` → `Brasil`
+- `obterShortRegion(String estado)` — UF por extenso → sigla
+- `obterCredit(String situacao)` — mapa de picklist para código ERP
+- `obterCustomerClassification(String rating)` — mapa de picklist para categoria ERP
+- `obterEntityType(Id matrizId)` — retorna `0` (matriz) ou `1` (filial)
+
+Validação em `executarIntegracao()`: 17 campos obrigatórios verificados antes do callout; lança `CalloutException` listando campos faltantes.
+
+Após sucesso: `conta.ExternalID__c = String.valueOf(respostaERP.get('customerCode'))`.
+
+#### `ERPContaIntegrationBatch` — Sincronização dos SOQLs
+
+Ambos os métodos `start()` e `processRecords()` mantidos idênticos com todos os campos necessários, incluindo `toLabel(Industry) IndustryLabel`, `StandardCarrier__r.ExternalID__c`, `Owner.ExternalID__c`, `MicrorregiaoFaturamento__c`, `NumeroFaturamento__c`, `NumeroCobranca__c`, `LastPurchaseDate__c`, `Website`.
+
+#### `FLIntegracaoConta` — Flow completo
+
+Fluxo implementado com os seguintes elementos:
+
+| Elemento | Tipo | Descrição |
+|---|---|---|
+| `obterConta` | Record Lookup | Busca a conta com todos os campos ERP |
+| `decisaoJaIntegrada` | Decision | Bloqueia se `ExternalID__c` já preenchido |
+| `telaJaIntegrada` | Screen | Informa que a conta já está no ERP |
+| `decisaoValidacao` | Decision | Verifica 8 campos obrigatórios preenchidos |
+| `telaConfirmarPayload` | Screen | Exibe de-para completo de todos os campos que serão enviados ao ERP |
+| `obterContaForm` | Record Lookup | Re-busca conta para preencher formulário |
+| `telaPreencherCampos` | Screen | Formulário com todos os campos editáveis |
+| `salvarCamposObrigatorios` | Record Update | Salva campos editados antes de integrar |
+| `telaCamposSalvos` | Screen | Confirmação de salvamento com botão "Integrar" separado |
+| `Integrar_Conta_com_ERP` | Action Call | Chama `ERPContaIntegrationBatch.processRecords` |
+| `telaIntegracaoSucesso` | Screen | Sucesso com emoji ✅ |
+| `telaIntegracaoErro` | Screen | Erro com mensagem da exceção |
+
+**Tela `telaConfirmarPayload`** — exibe tabela completa com de-para de todos os campos ERP→SF para revisão antes da integração.
+
+**Tela `telaPreencherCampos`** — formulário híbrido com dois tipos de campos:
+
+| Tipo | Campos |
+|---|---|
+| `ObjectProvided` (widget nativo SF) | `Situation__c`, `Prazo__c`, `Group__c`, `CNPJ__c`, `StateRegistration__c`, `BairroFaturamento__c`, `NumeroFaturamento__c`, `BairroCobranca__c`, `NumeroCobranca__c`, `IssuerShortName__c`, `Phone`, `MobilePhone__c`, `Industry`, `Rating`, `Matriz__c`, `Tabela_Precos__c` (lookup), `StandardCarrier__c` (lookup) |
+| `dataType:String` (texto simples) | `ShippingStreet/City/State/PostalCode`, `BillingStreet/City/State/PostalCode`, `Website`, `Email__c`, `DescontoMaximoPermitido__c`, `OwnerId`, `Description` |
+
+Campos compostos de endereço (ShippingStreet etc.), URL e OwnerId não são suportados por `ObjectProvided` — usam `dataType:String` com `defaultValue:elementReference` para pré-popular com valor atual.
+
+#### Descobertas técnicas sobre Flow Builder
+
+- `ObjectProvided` é o `fieldType` correto para widgets nativos do SF em telas de flow (dropdowns para picklists, lookup search para relacionamentos) — não `InputField`
+- `isRequired:true` não é permitido em campos `ObjectProvided` — deve ser `false`
+- Campos compostos de endereço (compound address subfields), URL e OwnerId não são compatíveis com `ObjectProvided` — usar `dataType:String`
+- Ordenação dos elementos XML: `recordUpdates` deve vir antes de `screens` no flow-meta.xml
+
+#### Correções de UX no flow
+
+- Imagens quebradas (`/img/samples/check32.png`): substituídas por emoji HTML `&#x2705;`
+- Erros de encoding (`IntegraÃ§Ã£o`): corrigidos com entidades HTML (`&ccedil;`, `&atilde;`, etc.)
+- `allowBack:false` + `allowFinish:false` em mesma tela: não permitido pelo Salesforce — alterado para `allowBack:true`
+
+### Resultado
+
+Integração de Contas testada com sucesso: contas **Silvana e Fabiana** integradas com `customerCode` `42210` retornado pelo ERP e salvo em `ExternalID__c`.
+
+### Org alvo
+
+- Sandbox: `icasa@onze.work.prd.sandbox`
+- Endpoint ERP: `https://portal.icasa.com.br/dts/datasul-rest/resources/prg/crm/v1/customerPublic`
