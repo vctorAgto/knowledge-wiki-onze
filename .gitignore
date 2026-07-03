@@ -1,0 +1,7 @@
+node_modules/
+.docusaurus/
+build/
+.DS_Store
+Thumbs.db
+*.tmp
+relatorio-sessoes.html
