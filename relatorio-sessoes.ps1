@@ -33,11 +33,16 @@ if (-not (Test-Path (Join-Path $RepoPath ".git"))) {
   Pop-Location
 }
 
-$clientesDir = Join-Path $RepoPath "clientes"
+# Suporta dois layouts: docs/clientes/ (Docusaurus) ou clientes/ (simples)
+$clientesDir = Join-Path $RepoPath "docs\clientes"
 if (-not (Test-Path $clientesDir)) {
-  Write-Error "Diretorio 'clientes/' nao encontrado em $RepoPath"
+  $clientesDir = Join-Path $RepoPath "clientes"
+}
+if (-not (Test-Path $clientesDir)) {
+  Write-Error "Diretorio 'docs/clientes/' ou 'clientes/' nao encontrado em $RepoPath"
   exit 1
 }
+Write-Host "  Lendo de: $clientesDir" -ForegroundColor DarkGray
 
 # ── 2. HELPERS HTML ──────────────────────────────────────
 function Escape-Html([string]$s) {
