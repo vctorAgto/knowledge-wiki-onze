@@ -5,3 +5,4 @@ build/
 Thumbs.db
 *.tmp
 relatorio-sessoes.html
+static/img/favicon.ico
