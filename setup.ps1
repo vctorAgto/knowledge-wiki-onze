@@ -79,7 +79,6 @@ $wikiDst = Join-Path $claudeCmd "wiki.md"
 
 if (-not (Test-Path $wikiSrc)) {
   Write-Host "  Criando comando /wiki..." -ForegroundColor Cyan
-  # Embed the command directly so setup.ps1 is self-contained
   @'
 Documenta essa sessao no wiki da Onze Work para o cliente: $ARGUMENTS
 
@@ -87,46 +86,76 @@ Siga exatamente esses passos:
 
 1. Identifica o nome do projeto principal desenvolvido nessa sessao (slug em kebab-case, ex: erp-integracao, lead-distribuicao)
 
-2. O repo esta clonado em: REPO_PATH_PLACEHOLDER
-   Se nao existir nesse caminho, clona: https://github.com/vctorAgto/knowledge-wiki-onze.git
+2. Verifica se o repo ja esta clonado. Procure em:
+   - C:\Users\[usuario]\Documents\projects-vscode\knowledge-wiki-onze
+   - C:\projetos\knowledge-wiki-onze
+   - ~/knowledge-wiki-onze
+   Se nao encontrar, clona: https://github.com/vctorAgto/knowledge-wiki-onze.git
+   Depois de clonar ou encontrar, faz git pull para garantir que esta atualizado.
 
-3. Dentro do repo, cria o arquivo (se nao existir):
-   clientes/$ARGUMENTS/projetos/[nome-do-projeto].md
+3. Garante que as pastas existem:
+   docs/clientes/$ARGUMENTS/
+   docs/clientes/$ARGUMENTS/projetos/
 
-4. Se o arquivo e novo, comeca com esse cabecalho:
+4. Se a pasta docs/clientes/$ARGUMENTS/ NAO existia antes, cria o arquivo:
+   docs/clientes/$ARGUMENTS/_category_.json
+   com o conteudo:
+   {
+     "label": "[Nome do Cliente em Titulo Case]",
+     "position": 99,
+     "collapsible": true,
+     "collapsed": false
+   }
+
+5. Se a pasta docs/clientes/$ARGUMENTS/projetos/ NAO existia antes, cria o arquivo:
+   docs/clientes/$ARGUMENTS/projetos/_category_.json
+   com o conteudo:
+   {
+     "label": "Projetos",
+     "position": 1,
+     "collapsible": true,
+     "collapsed": false
+   }
+
+6. Cria ou abre o arquivo:
+   docs/clientes/$ARGUMENTS/projetos/[nome-do-projeto].md
+
+7. Se o arquivo e novo, comeca com esse cabecalho:
    ---
-   title: [Nome do Projeto em Titulo]
+   title: [Nome do Projeto em Titulo Case]
    description: [Uma linha descrevendo o projeto]
-   tags: $ARGUMENTS, salesforce
+   tags: [$ARGUMENTS]
    ---
 
    # [Nome do Projeto]
 
-5. Pega o nome do autor com: git config user.name
+8. Pega o nome do autor com: git config user.name
+   Se falhar, usa o email do usuario atual da sessao.
 
-6. Adiciona a seguinte secao ao FINAL do arquivo:
+9. Adiciona a seguinte secao ao FINAL do arquivo (nunca edita o que ja existe):
 
-   ## [DATA-HOJE-YYYY-MM-DD] -- [Nome do Autor]
+   ## [DATA-HOJE-YYYY-MM-DD] - [Nome do Autor]
 
    ### O que foi solicitado
    [Resumo em bullets do que foi pedido nessa sessao]
 
    ### O que foi feito
-   [Resumo em bullets do que foi feito nessa sessao]
+   [Resumo em bullets do que foi implementado/resolvido]
 
-7. Commita e faz push:
-   git add clientes/$ARGUMENTS/
-   git commit -m "docs($ARGUMENTS): documenta sessao [nome-do-projeto]"
-   git push origin main
+10. Commita e faz push:
+    git add docs/clientes/$ARGUMENTS/
+    git commit -m "docs($ARGUMENTS): documenta sessao [nome-do-projeto]"
+    git push origin main
 
-Importante:
-- NUNCA apaga ou edita secoes existentes
-- Cada /wiki cria UMA nova secao ## no final
-- Usa bullets (-) nos resumos
-'@ -replace 'REPO_PATH_PLACEHOLDER', $repoPath | Out-File -FilePath $wikiDst -Encoding utf8
+Regras importantes:
+- NUNCA apaga ou edita secoes existentes no arquivo
+- Cada /wiki adiciona UMA nova secao ## no final
+- Usa bullets (-) nos resumos, sem paragrafos longos
+- O slug do projeto deve ser consistente entre sessoes do mesmo projeto
+- O push aciona o GitHub Actions que atualiza o site em ~2 minutos
+'@ | Out-File -FilePath $wikiDst -Encoding utf8
 } else {
-  (Get-Content $wikiSrc -Raw) -replace 'REPO_PATH_PLACEHOLDER', $repoPath |
-    Out-File -FilePath $wikiDst -Encoding utf8
+  Get-Content $wikiSrc -Raw | Out-File -FilePath $wikiDst -Encoding utf8
 }
 
 Write-Host "  Comando /wiki instalado em: $wikiDst" -ForegroundColor Green

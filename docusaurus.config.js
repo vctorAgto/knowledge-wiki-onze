@@ -15,11 +15,7 @@ const config = {
   trailingSlash: false,
 
   onBrokenLinks: 'warn',
-  markdown: {
-    hooks: {
-      onBrokenMarkdownLinks: 'warn',
-    },
-  },
+  onBrokenMarkdownLinks: 'warn',
 
   // sem i18n: pt-BR — evita o erro de webpack ProgressPlugin
   // o conteudo pode ser em portugues normalmente
