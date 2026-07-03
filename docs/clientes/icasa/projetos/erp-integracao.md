@@ -84,3 +84,30 @@ tags: [icasa, salesforce]
   - `dataType:String` (campos incompatíveis com ObjectProvided): endereços compostos (ShippingStreet etc.), `Website`, `Email__c`, `DescontoMaximoPermitido__c`, `OwnerId`, `Description`
 - Descoberta técnica: `ObjectProvided` é o `fieldType` correto para widgets nativos em telas de flow (não `InputField`); `isRequired:true` não é permitido em campos `ObjectProvided`; campos compostos de endereço, URL e OwnerId não são suportados por `ObjectProvided`
 - UX corrigido: imagens quebradas → emoji HTML `&#x2705;`; encoding de acentos → entidades HTML (`&ccedil;`, `&atilde;`); `allowBack:false` + `allowFinish:false` simultâneos não permitidos pelo SF → ajustado para `allowBack:true`
+
+## 2026-07-03 — Victor Pecuch
+
+### O que foi solicitado
+
+- Corrigir `FlowTrigger_CriaEnderecoComplementarPadrao`: campos `Endereco__c` e `Estado__c` não preenchidos ao criar `EnderecoComplementar__c` a partir de Account
+- Atualizar `FLIntegracaoConta`: remover `Prazo__c`, `Group__c`, `BairroCobranca__c` e `NumeroCobranca__c` da validação de obrigatórios e da tela de preenchimento
+- Corrigir `interstateTransactionType` em `ERPContaService`: valor hardcoded `'Operação Interna'` sendo truncado para `'Operaç'` pelo ERP
+- Criar `ERPOportunidadeService`: simulação de impostos no ERP para Oportunidades
+- Criar `ERPOportunidadeIntegrationBatch`: batch com `@InvocableMethod` para uso em flows
+- Criar `FLIntegracaoOportunidade`: flow de tela para simular impostos de Oportunidade no ERP
+- Criar Quick Action `Opportunity.IntegrarERP`: botão na página da Oportunidade chamando o flow
+- Corrigir log de integração não vinculado à Oportunidade (`Oportunidade__c` não era setado)
+- Corrigir endpoint: `BaseEndpoint__c` usa `cdp/v1`, mas simulação de impostos usa `ftp/v2`
+- Mapear campo `Payment` do payload ERP para `Prazo__c` da Oportunidade
+- Investigar diferença entre erro 503 no SF e 500/17006 no Postman
+
+### O que foi feito
+
+- `FlowTrigger_CriaEnderecoComplementarPadrao`: adicionados `inputAssignments` faltantes — `Endereco__c ← ShippingStreet` e `Estado__c ← ShippingState`
+- `FLIntegracaoConta`: removidas condições `Prazo__c` e `Group__c` da decisão `decisaoValidacao`; removidos campos `BairroCobranca__c` e `NumeroCobranca__c` da tela `telaPreencherCampos`
+- `ERPContaService`: `interstateTransactionType` substituído por lógica condicional: `MG → '511VC'`, demais → `'611VB'`
+- `ERPOportunidadeService` (novo): estende `BaseCalloutService`; endpoint derivado via regex `replaceAll('(crm|cdp)/v\\d+/', 'ftp/v2/')` sobre `BaseEndpoint__c`; `Payment` mapeado para `Prazo__c`; campos de imposto nos OLIs comentados com TODO (campos ainda não criados no SF)
+- `ERPOportunidadeIntegrationBatch` (novo): batch size 5; pré-busca OLIs em 1 SOQL por lote; `@InvocableMethod` recebe `List<Id>`; log criado com `Oportunidade__c = opp.Id`
+- `FLIntegracaoOportunidade` (novo): flow de tela com lookup de oportunidade → decisão de conta integrada (`ExternalID__c` não nulo) → tela de confirmação → action call Apex (`NewTransaction`) → lookup de log → decisão de status → telas de sucesso/erro e fault path
+- `Opportunity.IntegrarERP` Quick Action (nova): tipo `Flow`, aponta para `FLIntegracaoOportunidade`; deve ser adicionada ao page layout via Setup → Object Manager → Opportunity → Page Layouts
+- Investigação 503 vs 17006: confirmado via curl sem JSESSIONID que o ERP retorna `500/17006` (JSON) quando o Appserver está no ar; o `503 HTML` veio do proxy (Apache/Nginx) na frente do TOTVS indicando que o Appserver estava temporariamente fora; código SF está correto — quando estável, SF e Postman recebem o mesmo erro
