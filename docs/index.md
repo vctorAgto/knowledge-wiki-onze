@@ -14,8 +14,9 @@ Cada sessao com Claude e documentada aqui automaticamente via `/wiki [cliente]`.
 
 | Cliente | Projetos |
 |---|---|
-| Prime Results | Salesforce — Leads, Deploy, Integracao |
 | iCasa | Salesforce — ERP Datasul |
+| IOB | Salesforce — Cancelamento por Inadimplencia |
+| Onze Work | Portal de Conhecimento Interno |
 
 ---
 
